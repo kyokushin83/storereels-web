@@ -93,10 +93,7 @@
       const res = await fetch(API_BASE + "/make", {
         method: "POST",
         body: form,
-        headers: {
-          // ✅ 서버가 public URL 조립할 때 사용 (ngrok/배포 대응)
-          "x-public-base-url": API_BASE
-        }
+        
       });
 
       const data = await res.json();
