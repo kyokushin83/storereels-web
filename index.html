@@ -66,7 +66,7 @@
   </div>
 
 <script>
- const API_BASE = "https://preantepenult-veta-gustoish.ngrok-free.dev";
+const API_BASE = "https://preantepenult-veta-gustoish.ngrok-free.dev";
 
   const btn = document.getElementById("btn");
   const statusBox = document.getElementById("status");
@@ -81,8 +81,6 @@
 
   btn.addEventListener("click", async () => {
     const file = document.getElementById("file").files?.[0];
-    const template = document.getElementById("template").value;
-    const storeName = document.getElementById("storeName").value.trim();
 
     resultBox.style.display = "none";
     video.src = "";
@@ -94,24 +92,23 @@
     }
 
     btn.disabled = true;
-    setStatus("릴스 생성 중... (30초 정도 걸릴 수 있어요)");
+    setStatus("릴스 생성 중... (완료되면 아래에 영상이 뜹니다)");
 
     try {
       const form = new FormData();
       form.append("video", file);
-      form.append("template", template);
-      form.append("storeName", storeName);
 
       const res = await fetch(API_BASE + "/make", {
         method: "POST",
         body: form,
         headers: {
-          // 결과 URL이 ngrok 기준으로 나오게(중요)
+          // 결과 URL이 ngrok 기준으로 반환되게
           "x-public-base-url": API_BASE
         }
       });
 
       const data = await res.json();
+
       if (!res.ok) {
         setStatus("실패: " + (data.detail || data.error || res.status));
         return;
@@ -123,7 +120,7 @@
       download.href = data.outputUrl;
     } catch (e) {
       console.error(e);
-      setStatus("네트워크/CORS/FFmpeg 문제: " + e.message);
+      setStatus("에러: " + e.message);
     } finally {
       btn.disabled = false;
     }
