@@ -112,7 +112,7 @@ const API_BASE = "https://preantepenult-veta-gustoish.ngrok-free.dev";
       });
 
       const data = await res.json();
-
+console.log("MAKE RESULT", data);
       if (!res.ok) {
         setStatus("실패: " + (data.detail || data.error || res.status));
         return;
