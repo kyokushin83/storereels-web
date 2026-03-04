@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>StoreReels MVP</title>
+  <title>StoreReels MVP - CatCafe</title>
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background:#0b0b0f; color:#fff; }
     .wrap { max-width: 860px; margin: 0 auto; padding: 28px 16px 60px; }
@@ -11,14 +11,14 @@
     h1 { font-size: 22px; margin:0 0 10px; }
     p { margin: 8px 0 0; color:#c9c9dd; }
     label { display:block; margin: 14px 0 6px; color:#c9c9dd; font-size: 14px; }
-    input, select, button { width:100%; padding:12px 12px; border-radius:12px; border:1px solid #2b2b44; background:#0f0f18; color:#fff; }
+    input, button { width:100%; padding:12px 12px; border-radius:12px; border:1px solid #2b2b44; background:#0f0f18; color:#fff; }
     button { background:#3b5bff; border:none; font-weight:700; cursor:pointer; }
     button:disabled { opacity:.5; cursor:not-allowed; }
-    .row { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-    .status { margin-top:12px; padding:12px; border-radius:12px; background:#0f0f18; border:1px dashed #2b2b44; color:#c9c9dd; }
-    .small { font-size: 12px; color:#9a9ab4; margin-top:6px; }
+    .status { margin-top:12px; padding:12px; border-radius:12px; background:#0f0f18; border:1px dashed #2b2b44; color:#c9c9dd; display:none; white-space:pre-line; }
     video { width:100%; border-radius: 16px; margin-top: 12px; background:#000; }
+    img { width:100%; border-radius:16px; margin-top:12px; border:1px solid #26263b; background:#000; }
     a.btn { display:inline-block; text-decoration:none; text-align:center; margin-top:12px; padding:12px 12px; border-radius:12px; background:#23c55e; color:#06120a; font-weight:800; width:100%; }
+    a.btn2 { display:inline-block; text-decoration:none; text-align:center; margin-top:10px; padding:12px 12px; border-radius:12px; background:#fbbf24; color:#1b1300; font-weight:800; width:100%; }
     .footer { margin-top:18px; color:#9a9ab4; font-size:12px; }
     code { background:#0f0f18; padding:2px 6px; border-radius:8px; border:1px solid #2b2b44; }
   </style>
@@ -26,41 +26,24 @@
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>매장용 릴스 자동 생성기 (MVP)</h1>
-      <p>영상 업로드 → 자동 편집 → 30초 릴스 생성</p>
+      <h1>고양이카페 릴스 자동 생성기 (MVP)</h1>
+      <p>영상 1개 업로드 → (앞 5초 컷) → 30초 릴스 + 자동 썸네일</p>
 
-      <label>영상 파일</label>
-     <input id="file" type="file" accept="video/*" multiple />
-
-      <div class="row">
-        <div>
-          <label>템플릿</label>
-          <select id="template">
-  <option value="pet_animal">오늘의 동물(조회수)</option>
-  <option value="pet_cute">동물 귀여움 폭발</option>
-  <option value="pet_food">동물 먹방</option>
-  <option value="pet_store">매장 소개(브랜딩)</option>
-  <option value="pet_reaction">반응 모음(웃음)</option>
-  <option value="pet_mission">미션 성공</option>
-</select>
-        </div>
-        <div>
-          <label>매장명(옵션)</label>
-          <input id="storeName" type="text" placeholder="예: 펫스테이션" />
-        </div>
-      </div>
-
-      <label class="small">* MVP는 템플릿 2개로 시작하고, 나중에 10개로 늘리면 됨</label>
+      <label>영상 파일 (1개만)</label>
+      <input id="file" type="file" accept="video/*" />
 
       <div style="margin-top:14px;">
         <button id="btn">릴스 만들기</button>
       </div>
 
-      <div id="status" class="status" style="display:none;"></div>
+      <div id="status" class="status"></div>
 
       <div id="result" style="display:none;">
+        <img id="thumb" alt="thumbnail" />
+        <a id="thumbDownload" class="btn2" href="#" download>썸네일 다운로드</a>
+
         <video id="video" controls playsinline></video>
-        <a id="download" class="btn" href="#" download>다운로드</a>
+        <a id="download" class="btn" href="#" download>릴스 다운로드</a>
       </div>
 
       <div class="footer">
@@ -70,13 +53,16 @@
   </div>
 
 <script>
-const API_BASE = "https://preantepenult-veta-gustoish.ngrok-free.dev";
+  // ✅ 형 ngrok 주소 그대로 (원하면 여기만 바꾸면 됨)
+  const API_BASE = "https://preantepenult-veta-gustoish.ngrok-free.dev";
 
   const btn = document.getElementById("btn");
   const statusBox = document.getElementById("status");
   const resultBox = document.getElementById("result");
   const video = document.getElementById("video");
   const download = document.getElementById("download");
+  const thumb = document.getElementById("thumb");
+  const thumbDownload = document.getElementById("thumbDownload");
 
   function setStatus(msg) {
     statusBox.style.display = "block";
@@ -89,6 +75,8 @@ const API_BASE = "https://preantepenult-veta-gustoish.ngrok-free.dev";
     resultBox.style.display = "none";
     video.src = "";
     download.href = "#";
+    thumb.src = "";
+    thumbDownload.href = "#";
 
     if (!file) {
       setStatus("영상 파일을 먼저 선택해줘 형!");
@@ -96,34 +84,38 @@ const API_BASE = "https://preantepenult-veta-gustoish.ngrok-free.dev";
     }
 
     btn.disabled = true;
-    setStatus("릴스 생성 중... (완료되면 아래에 영상이 뜹니다)");
+    setStatus("릴스 생성 중...\n(완료되면 썸네일/영상이 아래에 뜹니다)");
 
     try {
       const form = new FormData();
-      const files = document.getElementById("file").files;
-for (const f of files) form.append("videos", f); // ✅ 필드명 videos
-form.append("template", document.getElementById("template").value);
+      form.append("video", file); // ✅ 1개만
 
       const res = await fetch(API_BASE + "/make", {
         method: "POST",
         body: form,
         headers: {
-          // 결과 URL이 ngrok 기준으로 반환되게
+          // ✅ 서버가 public URL 조립할 때 사용 (ngrok/배포 대응)
           "x-public-base-url": API_BASE
         }
       });
 
       const data = await res.json();
-console.log("MAKE RESULT", data);
+      console.log("MAKE RESULT", data);
+
       if (!res.ok) {
         setStatus("실패: " + (data.detail || data.error || res.status));
         return;
       }
 
-      setStatus("완료 ✅ 아래에서 재생/다운로드 가능");
+      setStatus("완료 ✅ 아래에서 썸네일/영상 확인 및 다운로드 가능");
       resultBox.style.display = "block";
+
+      thumb.src = data.thumbnailUrl;
+      thumbDownload.href = data.thumbnailUrl;
+
       video.src = data.outputUrl;
       download.href = data.outputUrl;
+
     } catch (e) {
       console.error(e);
       setStatus("에러: " + e.message);
@@ -131,10 +123,6 @@ console.log("MAKE RESULT", data);
       btn.disabled = false;
     }
   });
-  form.append("template", document.getElementById("template").value);
-form.append("storeName", document.getElementById("storeName").value.trim());
 </script>
-
-
 </body>
 </html>
