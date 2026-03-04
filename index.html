@@ -1,1 +1,164 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>StoreReels MVP</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background:#0b0b0f; color:#fff; }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 28px 16px 60px; }
+    .card { background:#141422; border:1px solid #26263b; border-radius:16px; padding:18px; }
+    h1 { font-size: 22px; margin:0 0 10px; }
+    p { margin: 8px 0 0; color:#c9c9dd; }
+    label { display:block; margin: 14px 0 6px; color:#c9c9dd; font-size: 14px; }
+    input, select, button { width:100%; padding:12px 12px; border-radius:12px; border:1px solid #2b2b44; background:#0f0f18; color:#fff; }
+    button { background:#3b5bff; border:none; font-weight:700; cursor:pointer; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .status { margin-top:12px; padding:12px; border-radius:12px; background:#0f0f18; border:1px dashed #2b2b44; color:#c9c9dd; }
+    .small { font-size: 12px; color:#9a9ab4; margin-top:6px; }
+    video { width:100%; border-radius: 16px; margin-top: 12px; background:#000; }
+    a.btn { display:inline-block; text-decoration:none; text-align:center; margin-top:12px; padding:12px 12px; border-radius:12px; background:#23c55e; color:#06120a; font-weight:800; width:100%; }
+    .footer { margin-top:18px; color:#9a9ab4; font-size:12px; }
+    code { background:#0f0f18; padding:2px 6px; border-radius:8px; border:1px solid #2b2b44; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>매장용 릴스 자동 생성기 (MVP)</h1>
+      <p>영상 업로드 → 자동 편집 → 30초 릴스 생성</p>
 
+      <label>영상 파일</label>
+      <input id="file" type="file" accept="video/*" />
+
+      <div class="row">
+        <div>
+          <label>템플릿</label>
+          <select id="template">
+            <option value="basic">basic (기본)</option>
+            <option value="vet">vet (체험/미션)</option>
+          </select>
+        </div>
+        <div>
+          <label>매장명(옵션)</label>
+          <input id="storeName" type="text" placeholder="예: 펫스테이션" />
+        </div>
+      </div>
+
+      <label class="small">* MVP는 템플릿 2개로 시작하고, 나중에 10개로 늘리면 됨</label>
+
+      <div style="margin-top:14px;">
+        <button id="btn">릴스 만들기</button>
+      </div>
+
+      <div id="status" class="status" style="display:none;"></div>
+
+      <div id="result" style="display:none;">
+        <video id="video" controls playsinline></video>
+        <a id="download" class="btn" href="#" download>다운로드</a>
+      </div>
+
+      <div class="footer">
+        API 주소는 코드에서 <code>API_BASE</code>만 바꾸면 됩니다.
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ✅ 여기만 형 서버 주소로 바꿔줘
+  // 예: "http://localhost:8080" 또는 "https://api.storereels.kr"
+  const API_BASE = "http://localhost:8080";
+
+  const $ = (id) => document.getElementById(id);
+  const btn = $("btn");
+  const statusBox = $("status");
+  const resultBox = $("result");
+  const video = $("video");
+  const download = $("download");
+
+  function setStatus(msg) {
+    statusBox.style.display = "block";
+    statusBox.textContent = msg;
+  }
+
+  function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+  async function createReel(file, template, storeName) {
+    const form = new FormData();
+    form.append("video", file);
+    form.append("template", template);
+    if (storeName) form.append("storeName", storeName);
+
+    const res = await fetch(`${API_BASE}/api/reels`, {
+      method: "POST",
+      body: form
+    });
+
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      throw new Error(`업로드 실패: ${res.status} ${t}`);
+    }
+    return await res.json(); // { id, status }
+  }
+
+  async function getJob(id) {
+    const res = await fetch(`${API_BASE}/api/reels/${id}`);
+    if (!res.ok) throw new Error("상태 조회 실패");
+    return await res.json();
+  }
+
+  btn.addEventListener("click", async () => {
+    const file = $("file").files?.[0];
+    const template = $("template").value;
+    const storeName = $("storeName").value.trim();
+
+    resultBox.style.display = "none";
+    video.src = "";
+    download.href = "#";
+
+    if (!file) {
+      alert("영상 파일을 선택해줘 형!");
+      return;
+    }
+
+    btn.disabled = true;
+
+    try {
+      setStatus("업로드 중...");
+      const created = await createReel(file, template, storeName);
+      const id = created.id;
+      setStatus(`작업 생성됨: ${id}\n편집 중...`);
+
+      // ✅ 폴링(2초마다) — MVP에 제일 쉬움
+      for (let i = 0; i < 90; i++) { // 최대 3분
+        await sleep(2000);
+        const job = await getJob(id);
+
+        if (job.status === "processing") {
+          setStatus(`편집 중... (${i+1})\n작업ID: ${id}`);
+        } else if (job.status === "done") {
+          setStatus("완료! 아래에서 재생/다운로드 가능");
+          resultBox.style.display = "block";
+          video.src = job.outputUrl;
+          download.href = job.outputUrl;
+          return;
+        } else if (job.status === "failed") {
+          setStatus(`실패: ${job.error || "unknown"}`);
+          return;
+        } else {
+          setStatus(`대기/진행 상태: ${job.status}\n작업ID: ${id}`);
+        }
+      }
+
+      setStatus("시간 초과: 서버에서 아직 처리 중일 수 있어요. 잠시 후 다시 조회해줘.");
+    } catch (e) {
+      console.error(e);
+      setStatus(e.message || "에러 발생");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
